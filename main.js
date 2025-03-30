@@ -82,6 +82,35 @@ app.post('/login', async (req, res) => {
     }
 });
 
+app.post('/register', async (req, res) => {
+    try {
+        const { username, email, password } = req.body;
+
+        // Check if username or email already exists
+        const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+        if (existingUser) return res.status(400).json({ error: 'Username or email already exists' });
+
+        // Generate OTP (One-Time Password)
+        const otp = uuid.v4().slice(0, 6); // Generate a 6-character OTP
+        otpStore[email] = { otp, expiresAt: Date.now() + 5 * 60 * 1000 }; // OTP expires in 5 minutes
+
+        // Send OTP to user's email
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'NovaBlox - OTP Verification',
+            text: Your OTP code is: ${otp}
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.status(200).json({ message: 'OTP sent to your email. Please verify to complete registration.' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // OTP Verification Route (Step 2: Verify and Login)
 app.post('/verify-otp', async (req, res) => {
     try {
