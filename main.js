@@ -110,6 +110,7 @@ app.post('/verify-otp', async (req, res) => {
         // If the user doesn't exist and we have both username and password, create a new user
         if (!user && username && password) {
             const hashedPassword = await bcrypt.hash(password, 10);
+            console.log(hashedPassword);
             user = new User({ username, email, password: hashedPassword });
 
             // Debugging: Check if the user object is correct before saving
