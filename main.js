@@ -47,39 +47,40 @@ const transporter = nodemailer.createTransport({
 console.log('Email user:', process.env.EMAIL_USER);
 console.log('Email pass:', process.env.EMAIL_PASS);
 
-// Register route to send OTP
-app.post('/register', async (req, res) => {
+// Login route with OTP
+app.post('/login', async (req, res) => {
     try {
-        const { username, email, password } = req.body;
+        const { username, password } = req.body;
+        const user = await User.findOne({ username });
+        if (!user) return res.status(400).json({ error: 'Invalid credentials' });
 
-        // Check if username or email already exists
-        const existingUser = await User.findOne({ $or: [{ username }, { email }] });
-        if (existingUser) return res.status(400).json({ error: 'Username or email already exists' });
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
-        // Generate OTP (One-Time Password)
+        // Generate OTP for login
         const otp = uuid.v4().slice(0, 6); // Generate a 6-character OTP
-        otpStore[email] = { otp, expiresAt: Date.now() + 5 * 60 * 1000 }; // OTP expires in 5 minutes
+        otpStore[user.email] = { otp, expiresAt: Date.now() + 5 * 60 * 1000 }; // OTP expires in 5 minutes
 
         // Send OTP to user's email
         const mailOptions = {
             from: process.env.EMAIL_USER,
-            to: email,
+            to: user.email,
             subject: 'NovaBlox - OTP Verification',
             text: `Your OTP code is: ${otp}`
         };
 
         await transporter.sendMail(mailOptions);
 
-        res.status(200).json({ message: 'OTP sent to your email. Please verify to complete registration.' });
+        res.status(200).json({ message: 'OTP sent to your email. Please verify to complete login.' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
-// OTP verification route to complete registration
+// OTP verification route to complete login
 app.post('/verify-otp', async (req, res) => {
-    const { email, otpInput, username, password } = req.body;
+    const { email, otpInput } = req.body;
 
     // Check if OTP exists and is not expired
     const storedOtp = otpStore[email];
@@ -90,32 +91,13 @@ app.post('/verify-otp', async (req, res) => {
         return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
 
-    // Hash the password and create the user
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ username, email, password: hashedPassword });
-    await user.save();
-
     // Clear the OTP from memory after successful verification
     delete otpStore[email];
 
-    res.status(201).json({ message: 'User registered successfully!' });
-});
+    // Generate JWT token
+    const token = jwt.sign({ id: email }, 'secretkey', { expiresIn: '1h' });
 
-// Login route
-app.post('/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        const user = await User.findOne({ username });
-        if (!user) return res.status(400).json({ error: 'Invalid credentials' });
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
-
-        const token = jwt.sign({ id: user._id }, 'secretkey', { expiresIn: '1h' });
-        res.json({ message: 'Login successful', token });
-    } catch (error) {
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    res.status(200).json({ message: 'Login successful', token });
 });
 
 // Start server
