@@ -115,6 +115,11 @@ app.post('/register', async (req, res) => {
 app.post('/verify-otp', async (req, res) => {
     try {
         const { email, otpInput, username, password } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
         const normalizedEmail = email.toLowerCase();
 
         const storedOtp = otpStore[normalizedEmail];
@@ -148,6 +153,7 @@ app.post('/verify-otp', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+
 
 
 // Start server
