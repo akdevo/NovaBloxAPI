@@ -99,40 +99,28 @@ app.post('/verify-otp', async (req, res) => {
         const { email, otpInput, username, password } = req.body;
         const storedOtp = otpStore[email];
 
-        // Debugging log to check OTP store before verification
-        console.log("Received email for OTP verification:", email);
-        console.log("Stored OTP:", storedOtp);
-
-        if (!storedOtp) {
-            console.error("No OTP stored");
-            return res.status(400).json({ error: 'OTP not found. Request a new one.' });
+        if (!storedOtp || Date.now() > storedOtp.expiresAt || storedOtp.otp !== otpInput) {
+            return res.status(400).json({ error: 'Invalid or expired OTP' });
         }
-        if (Date.now() > storedOtp.expiresAt) {
-            console.error("OTP expired");
-            return res.status(400).json({ error: 'OTP expired. Request a new one.' });
-        }
-        if (storedOtp.otp !== otpInput) {
-            console.error("Incorrect OTP");
-            return res.status(400).json({ error: 'Incorrect OTP. Try again.' });
-        }
-
-        // Remove OTP after successful verification
-        delete otpStore[email];
 
         let user = await User.findOne({ email });
+
         if (!user && username && password) {
             const hashedPassword = await bcrypt.hash(password, 10);
             user = new User({ username, email, password: hashedPassword });
-            await user.save();
+            user = await user.save();  // Ensure user has _id after saving
         }
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
+        delete otpStore[email];  // Remove OTP from the store after successful verification
+
         res.status(200).json({ message: 'Verification successful', token });
     } catch (error) {
-        console.error('Error during OTP verification:', error);
+        console.error(error);
         res.status(500).json({ error: 'Server error' });
     }
 });
+
 
 // Start server
 const PORT = process.env.PORT || 3000;
