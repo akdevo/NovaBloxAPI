@@ -126,7 +126,7 @@ app.post('/verify-otp', async (req, res) => {
         }
 
         // Generate JWT token
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
+        const token = jwt.sign({ id: user}, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
 
         // Remove OTP from the store after successful verification
         delete otpStore[email];
