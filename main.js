@@ -103,26 +103,48 @@ app.post('/verify-otp', async (req, res) => {
         const { email, otpInput, username, password } = req.body;
         const storedOtp = otpStore[email];
 
-        if (!storedOtp || Date.now() > storedOtp.expiresAt || storedOtp.otp !== otpInput) {
-            return res.status(400).json({ error: 'Invalid or expired OTP' });
-        }
+        // Debugging logs
+        console.log("Received email:", email);
+        console.log("Received OTP Input:", otpInput);
+        console.log("Stored OTP Object:", storedOtp);
+        console.log("Stored OTP:", storedOtp ? storedOtp.otp : "None");
+        console.log("Stored Expiry Time:", storedOtp ? storedOtp.expiresAt : "None");
+        console.log("Current Time:", Date.now());
+        console.log("Expired?", storedOtp && Date.now() > storedOtp.expiresAt);
 
+        // Check if OTP exists and is not expired
+        if (!storedOtp) return res.status(400).json({ error: 'OTP not found. Request a new one.' });
+        if (Date.now() > storedOtp.expiresAt) return res.status(400).json({ error: 'OTP expired. Request a new one.' });
+        if (String(storedOtp.otp) !== String(otpInput)) return res.status(400).json({ error: 'Incorrect OTP. Try again.' });
+
+        // Check if user exists
         let user = await User.findOne({ email });
-        if (!user && username && password) {
+
+        // If new user, register them
+        if (!user) {
+            if (!username || !password) {
+                return res.status(400).json({ error: 'Missing username or password for registration.' });
+            }
+
+            console.log(`Registering new user: ${username}`);
             const hashedPassword = await bcrypt.hash(password, 10);
             user = new User({ username, email, password: hashedPassword });
             await user.save();
         }
 
-        const token = jwt.sign({ id: user._id }, 'secretkey', { expiresIn: '1h' });
+        // Generate JWT token
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
+
+        // Remove OTP after successful verification
         delete otpStore[email];
 
         res.status(200).json({ message: 'Verification successful', token });
     } catch (error) {
-        console.error(error);
+        console.error('OTP verification error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
+
 
 // Start server
 const PORT = process.env.PORT || 3000;
