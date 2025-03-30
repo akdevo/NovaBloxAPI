@@ -41,11 +41,12 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// Generate and send OTP
 const sendOtp = async (email) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     otpStore[email] = { otp, expiresAt: Date.now() + 5 * 60 * 1000 };
-    console.log("OTP Stored:", otpStore);
+
+    // Debugging log to check if OTP is stored properly
+    console.log("OTP Stored for email", email, otpStore[email]);
 
     const mailOptions = {
         from: process.env.EMAIL_USER,
@@ -98,39 +99,34 @@ app.post('/verify-otp', async (req, res) => {
         const { email, otpInput, username, password } = req.body;
         const storedOtp = otpStore[email];
 
-        // Check if OTP exists and if it's expired or incorrect
+        // Debugging log to check OTP store before verification
+        console.log("Received email for OTP verification:", email);
+        console.log("Stored OTP:", storedOtp);
+
         if (!storedOtp) {
-            console.error("oh bro shit there's no stored OTP");
+            console.error("No OTP stored");
             return res.status(400).json({ error: 'OTP not found. Request a new one.' });
         }
         if (Date.now() > storedOtp.expiresAt) {
-            console.error("oh bro shit OTP is expired!");
+            console.error("OTP expired");
             return res.status(400).json({ error: 'OTP expired. Request a new one.' });
         }
         if (storedOtp.otp !== otpInput) {
-            console.error("bro what the fuck OTP is incorrect");
+            console.error("Incorrect OTP");
             return res.status(400).json({ error: 'Incorrect OTP. Try again.' });
         }
 
-        // Remove OTP from store after it's been used
+        // Remove OTP after successful verification
         delete otpStore[email];
 
-        // Check if user exists
         let user = await User.findOne({ email });
-        
-        // If new user, register them
-        if (!user) {
-            if (!username || !password) {
-                return res.status(400).json({ error: 'Missing username or password for registration.' });
-            }
+        if (!user && username && password) {
             const hashedPassword = await bcrypt.hash(password, 10);
             user = new User({ username, email, password: hashedPassword });
             await user.save();
         }
 
-        // Generate JWT token for the user
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
-
         res.status(200).json({ message: 'Verification successful', token });
     } catch (error) {
         console.error('Error during OTP verification:', error);
