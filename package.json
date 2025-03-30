@@ -1,0 +1,23 @@
+{
+  "name": "novablox-backend",
+  "version": "1.0.0",
+  "description": "Backend for NovaBlox with user authentication and MongoDB",
+  "main": "server.js",
+  "scripts": {
+    "start": "node main.js",
+    "dev": "nodemon main.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.1",
+    "jsonwebtoken": "^8.5.1",
+    "mongoose": "^6.0.12"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.19"
+  },
+  "author": "",
+  "license": "ISC"
+}
