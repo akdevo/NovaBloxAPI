@@ -8,9 +8,15 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-mongoose.connect('mongodb+srv://deftino2:AK170213@novabloxdb.yoxd1ir.mongodb.net/?retryWrites=true&w=majority&appName=NovaBloxDB', {
+require('dotenv').config();
+
+mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
+}).then(() => {
+    console.log('Connected to MongoDB');
+}).catch((error) => {
+    console.log('Error connecting to MongoDB:', error);
 });
 
 const UserSchema = new mongoose.Schema({
