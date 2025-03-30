@@ -43,6 +43,10 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+// Log email credentials (only for development/debugging)
+console.log('Email user:', process.env.EMAIL_USER);
+console.log('Email pass:', process.env.EMAIL_PASS);
+
 // Register route to send OTP
 app.post('/register', async (req, res) => {
     try {
