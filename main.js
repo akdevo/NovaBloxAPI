@@ -70,8 +70,8 @@ app.post('/login', async (req, res) => {
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: user.email,
-            subject: 'NovaBlox - OTP Verification',
-            text: `Your OTP code is: ${otp}`
+            subject: 'NovaBlox - Login OTP Verification',
+            text: `Hi again! Your OTP code is: ${otp}`
         };
         await transporter.sendMail(mailOptions);
 
@@ -98,8 +98,8 @@ app.post('/register', async (req, res) => {
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
-            subject: 'NovaBlox - OTP Verification',
-            text: Your OTP code is: ${otp}
+            subject: 'NovaBlox - Register OTP Verification',
+            text: `Hi! Thanks for registering your account! To register, you need to enter your OTP code, which is: ${otp}`
         };
 
         await transporter.sendMail(mailOptions);
@@ -114,36 +114,41 @@ app.post('/register', async (req, res) => {
 // OTP Verification Route (Step 2: Verify and Login)
 app.post('/verify-otp', async (req, res) => {
     try {
-        const { email, otpInput } = req.body;
+        const { email, otpInput, username, password } = req.body;
         const normalizedEmail = email.toLowerCase();
 
-        // Check OTP existence and expiration
         const storedOtp = otpStore[normalizedEmail];
         if (!storedOtp || Date.now() > storedOtp.expiresAt) {
             return res.status(400).json({ error: 'OTP expired or invalid' });
         }
 
-        // Validate OTP
         if (storedOtp.otp !== otpInput) {
             return res.status(400).json({ error: 'Incorrect OTP' });
         }
 
-        // Get user from DB
-        const user = await User.findOne({ email: normalizedEmail });
-        if (!user) return res.status(400).json({ error: 'User not found' });
+        let user = await User.findOne({ email: normalizedEmail });
 
-        // Generate JWT
+        if (!user) {
+            if (!password || !username) {
+                return res.status(400).json({ error: 'Username and password required for registration' });
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+            user = new User({ username, email: normalizedEmail, password: hashedPassword });
+            await user.save();
+        }
+
         const token = jwt.sign({ id: user._id }, 'secretkey', { expiresIn: '1h' });
 
-        // Remove OTP after successful login
         delete otpStore[normalizedEmail];
 
-        res.status(200).json({ message: 'Login successful', token });
+        res.status(200).json({ message: 'Verification successful', token });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Server error' });
     }
 });
+
 
 // Start server
 const PORT = process.env.PORT || 3000;
