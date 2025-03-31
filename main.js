@@ -96,48 +96,46 @@ app.post('/login', async (req, res) => {
 app.post('/verify-otp', async (req, res) => {
     try {
         const { email, otpInput, username, password } = req.body;
+
+        console.log("Received verification request:", req.body); // Debugging input
         const storedOtp = otpStore[email];
 
-        // Check if OTP exists, is not expired, and matches the input OTP
         if (!storedOtp || Date.now() > storedOtp.expiresAt || storedOtp.otp !== otpInput) {
+            console.error("Invalid OTP:", { storedOtp, otpInput });
             return res.status(400).json({ error: 'Invalid or expired OTP' });
         }
 
-        // Look for an existing user by email
         let user = await User.findOne({ email });
 
-        // If the user doesn't exist and we have both username and password, create a new user
         if (!user && username && password) {
             const hashedPassword = await bcrypt.hash(password, 10);
             user = new User({ username, email, password: hashedPassword });
 
             try {
-                user = await user.save(); // Save and ensure _id is created
-                console.log("New user created and saved:", user);
+                user = await user.save();
+                console.log("New user created:", user);
             } catch (saveError) {
                 console.error("Error saving user:", saveError);
                 return res.status(500).json({ error: 'Error saving user to database', details: saveError.message });
             }
         }
 
-        // Ensure user exists before generating a token
         if (!user) {
+            console.error("User registration failed.");
             return res.status(400).json({ error: 'User registration failed' });
         }
 
-        // Generate JWT token
         const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
 
-        // Remove OTP from the store after successful verification
         delete otpStore[email];
 
-        // Return the response with the token
         res.status(200).json({ message: 'Verification successful', token });
     } catch (error) {
-        console.error('OTP verification error:', error);
-        res.status(500).json({ error: 'Server error' });
+        console.error("OTP verification error:", error);
+        res.status(500).json({ error: 'Server error', details: error.message });
     }
 });
+
 
 // Start server
 const PORT = process.env.PORT || 3000;
