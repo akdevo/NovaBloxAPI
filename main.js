@@ -93,7 +93,6 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Verify OTP (Step 2: Verify OTP)
 app.post('/verify-otp', async (req, res) => {
     try {
         const { email, otpInput, username, password } = req.body;
@@ -112,11 +111,8 @@ app.post('/verify-otp', async (req, res) => {
             const hashedPassword = await bcrypt.hash(password, 10);
             user = new User({ username, email, password: hashedPassword });
 
-            // Debugging: Check if the user object is correct before saving
-            console.log('User object before saving:', user);
-
             try {
-                await user.save();
+                user = await user.save(); // Save and ensure _id is created
                 console.log("New user created and saved:", user);
             } catch (saveError) {
                 console.error("Error saving user:", saveError);
@@ -124,13 +120,13 @@ app.post('/verify-otp', async (req, res) => {
             }
         }
 
-        // Ensure user exists before creating a token
+        // Ensure user exists before generating a token
         if (!user) {
             return res.status(400).json({ error: 'User registration failed' });
         }
 
         // Generate JWT token
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
+        const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
 
         // Remove OTP from the store after successful verification
         delete otpStore[email];
@@ -142,9 +138,6 @@ app.post('/verify-otp', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
-
-
-
 
 // Start server
 const PORT = process.env.PORT || 3000;
