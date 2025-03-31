@@ -118,6 +118,8 @@ app.post('/verify-otp', async (req, res) => {
 
             // Save the user to the database, ensure to catch errors here
             try {
+                res.send(user);
+                
                 await user.save();
                 console.log("New user created and saved:", user);  // Log to verify user creation
             } catch (saveError) {
