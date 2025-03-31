@@ -110,26 +110,27 @@ app.post('/verify-otp', async (req, res) => {
         // If the user doesn't exist and we have both username and password, create a new user
         if (!user && username && password) {
             const hashedPassword = await bcrypt.hash(password, 10);
-            console.log(hashedPassword);
             user = new User({ username, email, password: hashedPassword });
 
             // Debugging: Check if the user object is correct before saving
             console.log('User object before saving:', user);
 
-            // Save the user to the database, ensure to catch errors here
             try {
-                res.send(user);
-                
                 await user.save();
-                console.log("New user created and saved:", user);  // Log to verify user creation
+                console.log("New user created and saved:", user);
             } catch (saveError) {
                 console.error("Error saving user:", saveError);
-                return res.status(500).json({ error: 'Error saving user to database' });
+                return res.status(500).json({ error: 'Error saving user to database', details: saveError.message });
             }
         }
 
+        // Ensure user exists before creating a token
+        if (!user) {
+            return res.status(400).json({ error: 'User registration failed' });
+        }
+
         // Generate JWT token
-        const token = jwt.sign({ id: user}, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1h' });
 
         // Remove OTP from the store after successful verification
         delete otpStore[email];
@@ -141,6 +142,7 @@ app.post('/verify-otp', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+
 
 
 
